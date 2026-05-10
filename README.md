@@ -118,6 +118,51 @@ frontend/
 
 ---
 
+## Deploy to Fly.io
+
+This repo includes a single-container `Dockerfile` and a `fly.toml`. The container builds the React frontend with Vite and serves it as static assets from FastAPI alongside the API — one process, one URL, one SQLite database on a persistent volume.
+
+**One-time setup**
+
+1. [Install the Fly CLI](https://fly.io/docs/flyctl/install/) and run `fly auth signup` (or `fly auth login`).
+2. Pick a unique app name — `diamonds-annotation` may be taken. Edit `app = ...` in `fly.toml`, or pass `--name` to `fly launch` below.
+3. Launch the app (this reads the existing `fly.toml`, creates the app on Fly, and skips an immediate deploy):
+
+   ```bash
+   fly launch --copy-config --no-deploy
+   ```
+
+4. Create the volume for the SQLite database:
+
+   ```bash
+   fly volumes create diamonds_data --region iad --size 1
+   ```
+
+5. Set secrets:
+
+   ```bash
+   fly secrets set ANTHROPIC_API_KEY=sk-ant-...
+
+   # Strongly recommended — without these, anyone with the URL can spend your API credits.
+   fly secrets set APP_USERNAME=you APP_PASSWORD=$(openssl rand -hex 16)
+   ```
+
+6. Deploy:
+
+   ```bash
+   fly deploy
+   ```
+
+The app sleeps when idle (`auto_stop_machines = "stop"`) and wakes on the next request — a few hundred ms cold start. To open it: `fly open`.
+
+**Subsequent deploys**: just `git push` to GitHub for the source, then `fly deploy` to ship a new version.
+
+**Costs**: on Fly's free allowance, a single shared-cpu-1x VM with a 1GB volume that auto-sleeps stays free. The cost you'll actually see is Anthropic API usage. Default model is Opus 4.7 — set `ANTHROPIC_MODEL=claude-sonnet-4-6` or `claude-haiku-4-5` as a Fly secret to drop that an order of magnitude.
+
+> **Why Fly and not Vercel?** Vercel is great for the frontend but the backend needs streaming responses and a persistent SQLite file — both awkward on serverless. Fly runs a normal long-lived container with a mounted volume, so the same code that runs locally runs in production unchanged.
+
+---
+
 ## API
 
 | Method | Path | Description |

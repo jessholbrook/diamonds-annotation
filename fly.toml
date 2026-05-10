@@ -1,0 +1,38 @@
+# Fly.io config — generate the actual app via `fly launch --no-deploy`
+# (or `fly launch --copy-config` if this file is already here), then deploy
+# with `fly deploy`. See the README's "Deploy to Fly.io" section.
+
+app = "diamonds-annotation"   # change this if the name is taken
+primary_region = "iad"        # us-east; pick the region closest to you
+
+[build]
+
+[env]
+  PORT       = "8080"
+  HOST       = "0.0.0.0"
+  DATA_DIR   = "/data"
+
+# Persistent volume for the SQLite database. Create it once with:
+#   fly volumes create diamonds_data --region iad --size 1
+[[mounts]]
+  source      = "diamonds_data"
+  destination = "/data"
+
+[http_service]
+  internal_port       = 8080
+  force_https         = true
+  auto_stop_machines  = "stop"  # scale to zero when idle to keep it free
+  auto_start_machines = true
+  min_machines_running = 0
+  processes           = ["app"]
+
+  [[http_service.checks]]
+    grace_period  = "10s"
+    interval      = "30s"
+    method        = "GET"
+    timeout       = "5s"
+    path          = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
